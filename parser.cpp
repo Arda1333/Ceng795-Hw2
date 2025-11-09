@@ -451,6 +451,125 @@ void parser::Scene::loadFromJSON(std::string filepath){
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
     // std::cout << "Got materials\n";
+
+
+    //////////////////////////////// Get Transformations ////////////////////////////////
+    // Scalings
+    element = data["Scene"]["Transformations"]["Scaling"];
+
+    // Single Scaling
+    if (!element.is_null() && element.type() != json::value_t::array) {
+        auto child = element["_data"];
+        stream << child.get<std::string>() << std::endl;
+        Matrix4f matrix;
+        matrix.p = 1.0;
+
+        stream >> matrix.a >> matrix.f >> matrix.k;
+        scalings.push_back(matrix);
+    }
+    else if (!element.is_null()) { // Multiple scalings
+        Matrix4f matrix;
+        matrix.p = 1.0;
+        for (auto& item : element.items()){
+            auto child = item.value()["_data"];
+            stream << child.get<std::string>() << std::endl;
+            stream >> matrix.a >> matrix.f >> matrix.k;
+            scalings.push_back(matrix);
+        }
+    }
+
+    // Rotations
+    element = data["Scene"]["Transformations"]["Rotation"];
+
+
+    // Single rotation
+    if (!element.is_null() && element.type() != json::value_t::array) {
+        auto child = element["_data"];
+        stream << child.get<std::string>() << std::endl;
+        float thetaDegrees;
+        Vec3f axis;
+
+        stream >> thetaDegrees;
+        stream >> axis.x >> axis.y >> axis.z;
+
+        axis = normalize(axis);
+        // Convert degrees to radians
+        float theta = thetaDegrees * static_cast<float>(M_PI) / 180.0f;
+
+        float c = std::cos(theta);
+        float s = std::sin(theta);
+        float t = 1.0f - c;
+
+        Matrix4f matrix(
+            t*axis.x*axis.x + c,     t*axis.x*axis.y - s*axis.z,  t*axis.x*axis.z + s*axis.y,  0.0f,
+            t*axis.x*axis.y + s*axis.z,   t*axis.y*axis.y + c,    t*axis.y*axis.z - s*axis.x,  0.0f,
+            t*axis.x*axis.z - s*axis.y,   t*axis.y*axis.z + s*axis.x,  t*axis.z*axis.z + c,    0.0f,
+            0.0f,          0.0f,         0.0f,         1.0f
+        );
+
+        rotations.push_back(matrix);
+    }
+    else if (!element.is_null()) { // Multiple rotations
+        float thetaDegrees;
+        Vec3f axis;
+        for (auto& item : element.items()){
+            auto child = item.value()["_data"];
+            stream << child.get<std::string>() << std::endl;
+
+            stream >> thetaDegrees;
+            stream >> axis.x >> axis.y >> axis.z;
+
+            axis = normalize(axis);
+            // Convert degrees to radians
+            float theta = thetaDegrees * static_cast<float>(M_PI) / 180.0f;
+
+            float c = std::cos(theta);
+            float s = std::sin(theta);
+            float t = 1.0f - c;
+
+            Matrix4f matrix(
+                t*axis.x*axis.x + c,     t*axis.x*axis.y - s*axis.z,  t*axis.x*axis.z + s*axis.y,  0.0f,
+                t*axis.x*axis.y + s*axis.z,   t*axis.y*axis.y + c,    t*axis.y*axis.z - s*axis.x,  0.0f,
+                t*axis.x*axis.z - s*axis.y,   t*axis.y*axis.z + s*axis.x,  t*axis.z*axis.z + c,    0.0f,
+                0.0f,          0.0f,         0.0f,         1.0f
+            );
+
+            rotations.push_back(matrix);
+        }
+    }
+
+
+    // Translations
+    element = data["Scene"]["Transformations"]["Translations"];
+
+
+    // Single translation
+    if (!element.is_null() && element.type() != json::value_t::array) {
+        auto child = element["_data"];
+        stream << child.get<std::string>() << std::endl;
+        Matrix4f matrix;
+        matrix.a = 1; matrix.f = 1; matrix.k = 1; matrix.p = 1;
+
+        stream >> matrix.d >> matrix.h >> matrix.l;
+
+        rotations.push_back(matrix);
+    }
+    else if (!element.is_null()) { // Multiple rotations
+        float thetaDegrees;
+        Vec3f axis;
+        for (auto& item : element.items()){
+            auto child = item.value()["_data"];
+            stream << child.get<std::string>() << std::endl;
+            Matrix4f matrix;
+            matrix.a = 1; matrix.f = 1; matrix.k = 1; matrix.p = 1;
+
+            stream >> matrix.d >> matrix.h >> matrix.l;
+
+            rotations.push_back(matrix);
+        }
+    }
+    
+    ////////////////////////////////////////////////////////////////////////////////////////////////
     
     
     //////////////////////////////// Get VertexData ////////////////////////////////
