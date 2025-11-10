@@ -7,23 +7,6 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
 
-// Matrix Definition
-struct Matrix3f {
-    float a, d, g, b, e, h, c, f, i;
-
-    Matrix3f() {}
-
-    Matrix3f(parser::Vec3f c1, parser::Vec3f c2, parser::Vec3f c3) {
-        a = c1.x; b = c1.y; c = c1.z;
-        d = c2.x; e = c2.y; f = c2.z;
-        g = c3.x; h = c3.y; i = c3.z;
-    }
-};
-
-float determinant(Matrix3f m) {
-    return m.a*(m.e*m.i - m.h*m.f) + m.b*(m.g*m.f - m.d*m.i) + m.c*(m.d*m.h - m.e*m.g);  
-}
-
 
 
 
@@ -47,14 +30,26 @@ int main(int argc, char** argv) {
     parser::Scene scene;
     scene.loadFromJSON(scene_file);
 
+    std::cout << "Translations loaded: " << scene.translations.size() << std::endl;
+    std::cout << "Rotations loaded: " << scene.rotations.size() << std::endl;
+    std::cout << "Scalings loaded: " << scene.scalings.size() << std::endl;
+
+    if (scene.spheres.size() > 0){
+        std::cout << "Transformation count of first sphere: "
+        << scene.spheres[0].rotations.size() + scene.spheres[0].translations.size() + scene.spheres[0].scalings.size()
+        << std::endl;
+    }
+
+    return 0;
+
 
     std::cout << "Rendering..." << std::endl;
 
-    std::cout << "Gaze: " << scene.cameras[0].gaze.x << ", " << scene.cameras[0].gaze.y << ", " << scene.cameras[0].gaze.z << std::endl;
-    std::cout << "Up: " << scene.cameras[0].up.x << ", " << scene.cameras[0].up.y << ", " << scene.cameras[0].up.z << std::endl;
-    std::cout << "Position: " << scene.cameras[0].position.x << ", " << scene.cameras[0].position.y << ", " << scene.cameras[0].position.z << std::endl;
-    std::cout << "Corner: " << scene.cameras[0].corner.x << ", " << scene.cameras[0].corner.y << ", " << scene.cameras[0].corner.z << std::endl;
-    std::cout << "Total pixels: " << scene.cameras[0].image_height * scene.cameras[0].image_width << std::endl;
+    // std::cout << "Gaze: " << scene.cameras[0].gaze.x << ", " << scene.cameras[0].gaze.y << ", " << scene.cameras[0].gaze.z << std::endl;
+    // std::cout << "Up: " << scene.cameras[0].up.x << ", " << scene.cameras[0].up.y << ", " << scene.cameras[0].up.z << std::endl;
+    // std::cout << "Position: " << scene.cameras[0].position.x << ", " << scene.cameras[0].position.y << ", " << scene.cameras[0].position.z << std::endl;
+    // std::cout << "Corner: " << scene.cameras[0].corner.x << ", " << scene.cameras[0].corner.y << ", " << scene.cameras[0].corner.z << std::endl;
+    // std::cout << "Total pixels: " << scene.cameras[0].image_height * scene.cameras[0].image_width << std::endl;
 
     // Starting the timer
     auto start = std::chrono::high_resolution_clock::now();
@@ -302,15 +297,15 @@ float intersectsTriangle(parser::Vec3f& rayOrigin, parser::Vec3f& rayDirection, 
     parser::Vec3f b = scene.vertex_data[triangle.v1-1];
     parser::Vec3f c = scene.vertex_data[triangle.v2-1];
 
-    Matrix3f ma(parser::vector_sub(a,b), parser::vector_sub(a,c), rayDirection);
-    Matrix3f mb(parser::vector_sub(a, rayOrigin), parser::vector_sub(a,c), rayDirection);
-    Matrix3f my(parser::vector_sub(a,b), parser::vector_sub(a, rayOrigin), rayDirection);
-    Matrix3f mt(parser::vector_sub(a,b), parser::vector_sub(a,c), parser::vector_sub(a, rayOrigin));
+    parser::Matrix3f ma(parser::vector_sub(a,b), parser::vector_sub(a,c), rayDirection);
+    parser::Matrix3f mb(parser::vector_sub(a, rayOrigin), parser::vector_sub(a,c), rayDirection);
+    parser::Matrix3f my(parser::vector_sub(a,b), parser::vector_sub(a, rayOrigin), rayDirection);
+    parser::Matrix3f mt(parser::vector_sub(a,b), parser::vector_sub(a,c), parser::vector_sub(a, rayOrigin));
 
-    float det_ma = determinant(ma);
-    float det_mb = determinant(mb);
-    float det_my = determinant(my);
-    float det_mt = determinant(mt);
+    float det_ma = parser::determinant(ma);
+    float det_mb = parser::determinant(mb);
+    float det_my = parser::determinant(my);
+    float det_mt = parser::determinant(mt);
 
     // Divisioın by zero check
     if (std::fabs(det_ma) < 1e-6f) return -1.0f;

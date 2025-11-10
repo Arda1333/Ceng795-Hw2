@@ -540,7 +540,7 @@ void parser::Scene::loadFromJSON(std::string filepath){
 
 
     // Translations
-    element = data["Scene"]["Transformations"]["Translations"];
+    element = data["Scene"]["Transformations"]["Translation"];
 
 
     // Single translation
@@ -552,11 +552,9 @@ void parser::Scene::loadFromJSON(std::string filepath){
 
         stream >> matrix.d >> matrix.h >> matrix.l;
 
-        rotations.push_back(matrix);
+        translations.push_back(matrix);
     }
-    else if (!element.is_null()) { // Multiple rotations
-        float thetaDegrees;
-        Vec3f axis;
+    else if (!element.is_null()) { // Multiple translations
         for (auto& item : element.items()){
             auto child = item.value()["_data"];
             stream << child.get<std::string>() << std::endl;
@@ -565,7 +563,7 @@ void parser::Scene::loadFromJSON(std::string filepath){
 
             stream >> matrix.d >> matrix.h >> matrix.l;
 
-            rotations.push_back(matrix);
+            translations.push_back(matrix);
         }
     }
     
@@ -952,4 +950,17 @@ void parser::Scene::loadFromJSON(std::string filepath){
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
     // std::cout << "Got planes\n";
+}
+
+float determinant(parser::Matrix4f m) {
+    float det3_1 = m.f * (m.k * m.p - m.o * m.l) - m.g * (m.j * m.p - m.n * m.l) + m.h * (m.j * m.o - m.n * m.k);
+    float det3_2 = m.e * (m.k * m.p - m.o * m.l) - m.g * (m.i * m.p - m.m * m.l) + m.h * (m.i * m.o - m.m * m.k);
+    float det3_3 = m.e * (m.j * m.p - m.n * m.l) - m.f * (m.i * m.p - m.m * m.l) + m.h * (m.i * m.n - m.m * m.j);
+    float det3_4 = m.e * (m.j * m.o - m.n * m.k) - m.f * (m.i * m.o - m.m * m.k) + m.g * (m.i * m.n - m.m * m.j);
+
+    return m.a * det3_1 - m.b * det3_2 + m.c * det3_3 - m.d * det3_4;
+}
+
+float determinant(parser::Matrix3f m) {
+    return m.a*(m.e*m.i - m.h*m.f) + m.b*(m.g*m.f - m.d*m.i) + m.c*(m.d*m.h - m.e*m.g);  
 }

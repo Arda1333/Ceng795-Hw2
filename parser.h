@@ -77,18 +77,9 @@ namespace parser
         }
     };
 
-    float determinant(Matrix4f m) {
-        float det3_1 = m.f * (m.k * m.p - m.o * m.l) - m.g * (m.j * m.p - m.n * m.l) + m.h * (m.j * m.o - m.n * m.k);
-        float det3_2 = m.e * (m.k * m.p - m.o * m.l) - m.g * (m.i * m.p - m.m * m.l) + m.h * (m.i * m.o - m.m * m.k);
-        float det3_3 = m.e * (m.j * m.p - m.n * m.l) - m.f * (m.i * m.p - m.m * m.l) + m.h * (m.i * m.n - m.m * m.j);
-        float det3_4 = m.e * (m.j * m.o - m.n * m.k) - m.f * (m.i * m.o - m.m * m.k) + m.g * (m.i * m.n - m.m * m.j);
+    inline float determinant(Matrix4f m);
 
-        return m.a * det3_1 - m.b * det3_2 + m.c * det3_3 - m.d * det3_4;
-    }
-
-    float determinant(Matrix3f m) {
-        return m.a*(m.e*m.i - m.h*m.f) + m.b*(m.g*m.f - m.d*m.i) + m.c*(m.d*m.h - m.e*m.g);  
-    }
+    inline float determinant(Matrix3f m);
 
     template<typename T> float magnitude(T vec) { //Can give 0 for small vectors
         return std::sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
