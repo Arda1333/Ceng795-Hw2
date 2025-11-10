@@ -630,8 +630,25 @@ void parser::Scene::loadFromJSON(std::string filepath){
             stream.str("");
             stream.clear();
         }
-        
 
+
+        child = element["Transformations"];
+        if (!child.is_null()){
+            stream << child.get<std::string>() << std::endl;
+            std::string transform;
+
+            while(stream >> transform){
+                if (transform[0] == 't') mesh.translations.push_back((int)(transform[1] - '0'));
+
+                else if (transform[0] == 'r') mesh.rotations.push_back((int)(transform[1] - '0'));
+
+                else mesh.scalings.push_back((int)(transform[1] - '0'));
+            }
+
+            stream.str("");
+            stream.clear();
+        }
+        
         meshes.push_back(mesh);
     }
     else { // Multiple Meshes
@@ -668,6 +685,24 @@ void parser::Scene::loadFromJSON(std::string filepath){
             }
 
 
+            child = item.value()["Transformations"];
+            if (!child.is_null()){
+                stream << child.get<std::string>() << std::endl;
+                std::string transform;
+
+                while(stream >> transform){
+                    if (transform[0] == 't') mesh.translations.push_back((int)(transform[1] - '0'));
+
+                    else if (transform[0] == 'r') mesh.rotations.push_back((int)(transform[1] - '0'));
+
+                    else mesh.scalings.push_back((int)(transform[1] - '0'));
+                }
+
+                stream.str("");
+                stream.clear();
+            }
+
+
             meshes.push_back(mesh);
         }
     }
@@ -696,6 +731,23 @@ void parser::Scene::loadFromJSON(std::string filepath){
         vec2 = vector_sub(vertex_data[triangle.v2], vertex_data[triangle.v0]);
         triangle.normal = normalize(cross(vec1, vec2));
 
+        child = element["Transformations"];
+        if (!child.is_null()){
+            stream << child.get<std::string>() << std::endl;
+            std::string transform;
+
+            while(stream >> transform){
+                if (transform[0] == 't') triangle.translations.push_back((int)(transform[1] - '0'));
+
+                else if (transform[0] == 'r') triangle.rotations.push_back((int)(transform[1] - '0'));
+
+                else triangle.scalings.push_back((int)(transform[1] - '0'));
+            }
+
+            stream.str("");
+            stream.clear();
+        }
+
         triangles.push_back(triangle);
     }
     else { // Multiple Triangles
@@ -714,6 +766,23 @@ void parser::Scene::loadFromJSON(std::string filepath){
             vec1 = vector_sub(vertex_data[triangle.v1], vertex_data[triangle.v0]);
             vec2 = vector_sub(vertex_data[triangle.v2], vertex_data[triangle.v0]);
             triangle.normal = normalize(cross(vec1, vec2));
+
+            child = item.value()["Transformations"];
+            if (!child.is_null()){
+                stream << child.get<std::string>() << std::endl;
+                std::string transform;
+
+                while(stream >> transform){
+                    if (transform[0] == 't') triangle.translations.push_back((int)(transform[1] - '0'));
+
+                    else if (transform[0] == 'r') triangle.rotations.push_back((int)(transform[1] - '0'));
+
+                    else triangle.scalings.push_back((int)(transform[1] - '0'));
+                }
+
+                stream.str("");
+                stream.clear();
+            }
 
             triangles.push_back(triangle);
         }
@@ -744,6 +813,23 @@ void parser::Scene::loadFromJSON(std::string filepath){
         stream << child.get<std::string>() << std::endl;
         stream >> sphere.material_id;
 
+        child = element["Transformations"];
+        if (!child.is_null()){
+            stream << child.get<std::string>() << std::endl;
+            std::string transform;
+
+            while(stream >> transform){
+                if (transform[0] == 't') sphere.translations.push_back((int)(transform[1] - '0'));
+
+                else if (transform[0] == 'r') sphere.rotations.push_back((int)(transform[1] - '0'));
+
+                else sphere.scalings.push_back((int)(transform[1] - '0'));
+            }
+
+            stream.str("");
+            stream.clear();
+        }
+
         spheres.push_back(sphere);
     }
     else { // Multiple Spheres
@@ -760,6 +846,23 @@ void parser::Scene::loadFromJSON(std::string filepath){
             child = item.value()["Material"];
             stream << child.get<std::string>() << std::endl;
             stream >> sphere.material_id;
+
+            child = item.value()["Transformations"];
+            if (!child.is_null()){
+                stream << child.get<std::string>() << std::endl;
+                std::string transform;
+
+                while(stream >> transform){
+                    if (transform[0] == 't') sphere.translations.push_back((int)(transform[1] - '0'));
+
+                    else if (transform[0] == 'r') sphere.rotations.push_back((int)(transform[1] - '0'));
+
+                    else sphere.scalings.push_back((int)(transform[1] - '0'));
+                }
+
+                stream.str("");
+                stream.clear();
+            }
 
             spheres.push_back(sphere);
         }
@@ -791,6 +894,23 @@ void parser::Scene::loadFromJSON(std::string filepath){
         stream << child.get<std::string>() << std::endl;
         stream >> plane.material_id;
 
+        child = element["Transformations"];
+        if (!child.is_null()){
+            stream << child.get<std::string>() << std::endl;
+            std::string transform;
+
+            while(stream >> transform){
+                if (transform[0] == 't') plane.translations.push_back((int)(transform[1] - '0'));
+
+                else if (transform[0] == 'r') plane.rotations.push_back((int)(transform[1] - '0'));
+
+                else plane.scalings.push_back((int)(transform[1] - '0'));
+            }
+
+            stream.str("");
+            stream.clear();
+        }
+
         planes.push_back(plane);
     }
     else { // Multiple Planes
@@ -807,6 +927,23 @@ void parser::Scene::loadFromJSON(std::string filepath){
             child = item.value()["Material"];
             stream << child.get<std::string>() << std::endl;
             stream >> plane.material_id;
+
+            child = item.value()["Transformations"];
+            if (!child.is_null()){
+                stream << child.get<std::string>() << std::endl;
+                std::string transform;
+
+                while(stream >> transform){
+                    if (transform[0] == 't') plane.translations.push_back((int)(transform[1] - '0'));
+
+                    else if (transform[0] == 'r') plane.rotations.push_back((int)(transform[1] - '0'));
+
+                    else plane.scalings.push_back((int)(transform[1] - '0'));
+                }
+
+                stream.str("");
+                stream.clear();
+            }
 
             planes.push_back(plane);
         }

@@ -209,7 +209,9 @@ namespace parser
         int material_id;
         std::string ply_file;
         std::vector<Face> faces;
-        std::vector<std::string> transformations;
+        std::vector<int> translations;
+        std::vector<int> rotations;
+        std::vector<int> scalings;
     };
 
     struct Triangle
@@ -217,7 +219,9 @@ namespace parser
         int material_id;
         int v0, v1, v2;
         Vec3f normal;
-        std::vector<std::string> transformations;
+        std::vector<int> translations;
+        std::vector<int> rotations;
+        std::vector<int> scalings;
     };
 
     struct Sphere
@@ -225,7 +229,9 @@ namespace parser
         int material_id;
         int center_vertex_id;
         float radius;
-        std::vector<std::string> transformations;
+        std::vector<int> translations;
+        std::vector<int> rotations;
+        std::vector<int> scalings;
     };
 
     struct Plane
@@ -233,7 +239,9 @@ namespace parser
         int material_id;
         Vec3f normal;
         int point_id;
-        std::vector<std::string> transformations;
+        std::vector<int> translations;
+        std::vector<int> rotations;
+        std::vector<int> scalings;
     };
 
 
