@@ -620,9 +620,20 @@ void parser::Scene::loadFromJSON(std::string filepath){
             stream << child.get<std::string>() << std::endl;
             
             Face face;
+            Vec3i indices;
 
-            while (stream >> face.v0 >> face.v1 >> face.v2) {
+            while (stream >> indices.x >> indices.y >> indices.z) {
+                // Change when non-triangle faces are given
                 face.triangle = true;
+                face.v0 = vertex_data[indices.x-1];
+                face.v1 = vertex_data[indices.y-1];
+                face.v2 = vertex_data[indices.z-1];
+
+                parser::Vec3f vec1, vec2;
+                vec1 = parser::vector_sub(face.v1, face.v0);
+                vec2 = parser::vector_sub(face.v2, face.v0);
+                face.normal = parser::normalize(parser::cross(vec1, vec2));
+
                 mesh.faces.push_back(face);
             }
             stream.str("");
@@ -633,15 +644,20 @@ void parser::Scene::loadFromJSON(std::string filepath){
         child = element["Transformations"];
         if (!child.is_null()){
             stream << child.get<std::string>() << std::endl;
-            std::string transform;
+            std::string transform_id;
+            parser::Matrix4f transform;
+            transform.a = 1; transform.f = 1; transform.k = 1; transform.p = 1;
 
-            while(stream >> transform){
-                if (transform[0] == 't') mesh.translations.push_back((int)(transform[1] - '0'));
+            while(stream >> transform_id){
+                if (transform_id[0] == 't') transform = parser::matrixMult(transform, translations[(int)(transform_id[1]-'0')]);
 
-                else if (transform[0] == 'r') mesh.rotations.push_back((int)(transform[1] - '0'));
+                else if (transform_id[0] == 'r') transform = parser::matrixMult(transform, rotations[(int)(transform_id[1]-'0')]);
 
-                else mesh.scalings.push_back((int)(transform[1] - '0'));
+                else transform = parser::matrixMult(transform, scalings[(int)(transform_id[1]-'0')]);
             }
+
+            mesh.transformation = transform;
+            mesh.normal_transform = parser::matrixInverse(parser::matrixTranspose(transform));
 
             stream.str("");
             stream.clear();
@@ -674,8 +690,19 @@ void parser::Scene::loadFromJSON(std::string filepath){
                 stream << child.get<std::string>() << std::endl;
                 
                 Face face;
-                while (stream >> face.v0 >> face.v1 >> face.v2) {
+                Vec3i indices;
+                while (stream >> indices.x >> indices.y >> indices.z) {
+                    // Change when non-triangle faces are given
                     face.triangle = true;
+                    face.v0 = vertex_data[indices.x-1];
+                    face.v1 = vertex_data[indices.y-1];
+                    face.v2 = vertex_data[indices.z-1];
+
+                    parser::Vec3f vec1, vec2;
+                    vec1 = parser::vector_sub(face.v1, face.v0);
+                    vec2 = parser::vector_sub(face.v2, face.v0);
+                    face.normal = parser::normalize(parser::cross(vec1, vec2));
+                    
                     mesh.faces.push_back(face);
                 }
                 stream.str("");
@@ -686,15 +713,20 @@ void parser::Scene::loadFromJSON(std::string filepath){
             child = item.value()["Transformations"];
             if (!child.is_null()){
                 stream << child.get<std::string>() << std::endl;
-                std::string transform;
+                std::string transform_id;
+                parser::Matrix4f transform;
+                transform.a = 1; transform.f = 1; transform.k = 1; transform.p = 1;
 
-                while(stream >> transform){
-                    if (transform[0] == 't') mesh.translations.push_back((int)(transform[1] - '0'));
+                while(stream >> transform_id){
+                    if (transform_id[0] == 't') transform = parser::matrixMult(transform, translations[(int)(transform_id[1]-'0')]);
 
-                    else if (transform[0] == 'r') mesh.rotations.push_back((int)(transform[1] - '0'));
+                    else if (transform_id[0] == 'r') transform = parser::matrixMult(transform, rotations[(int)(transform_id[1]-'0')]);
 
-                    else mesh.scalings.push_back((int)(transform[1] - '0'));
+                    else transform = parser::matrixMult(transform, scalings[(int)(transform_id[1]-'0')]);
                 }
+                
+                mesh.transformation = transform;
+                mesh.normal_transform = parser::matrixInverse(parser::matrixTranspose(transform));
 
                 stream.str("");
                 stream.clear();
@@ -716,8 +748,12 @@ void parser::Scene::loadFromJSON(std::string filepath){
     if (element.type() != json::value_t::array && !element.is_null()) { // Single Triangle
         Triangle triangle;
         auto child = element["Indices"];
+        Vec3i indices;
         stream << child.get<std::string>() << std::endl;
-        stream >> triangle.v0 >> triangle.v1 >> triangle.v2;
+        stream >> indices.x >> indices.y >> indices.z;
+        triangle.v0 = vertex_data[indices.x-1];
+        triangle.v1 = vertex_data[indices.y-1];
+        triangle.v2 = vertex_data[indices.z-1];
         
         child = element["Material"];
         stream << child.get<std::string>() << std::endl;
@@ -725,22 +761,27 @@ void parser::Scene::loadFromJSON(std::string filepath){
 
         // Calculate Normal from VertexData and Indices
         Vec3f vec1, vec2;
-        vec1 = vector_sub(vertex_data[triangle.v1], vertex_data[triangle.v0]);
-        vec2 = vector_sub(vertex_data[triangle.v2], vertex_data[triangle.v0]);
+        vec1 = vector_sub(triangle.v1, triangle.v0);
+        vec2 = vector_sub(triangle.v2, triangle.v0);
         triangle.normal = normalize(cross(vec1, vec2));
 
         child = element["Transformations"];
         if (!child.is_null()){
             stream << child.get<std::string>() << std::endl;
-            std::string transform;
+            std::string transform_id;
+            parser::Matrix4f transform;
+            transform.a = 1; transform.f = 1; transform.k = 1; transform.p = 1;
 
-            while(stream >> transform){
-                if (transform[0] == 't') triangle.translations.push_back((int)(transform[1] - '0'));
+            while(stream >> transform_id){
+                if (transform_id[0] == 't') transform = parser::matrixMult(transform, translations[(int)(transform_id[1]-'0')]);
 
-                else if (transform[0] == 'r') triangle.rotations.push_back((int)(transform[1] - '0'));
+                else if (transform_id[0] == 'r') transform = parser::matrixMult(transform, rotations[(int)(transform_id[1]-'0')]);
 
-                else triangle.scalings.push_back((int)(transform[1] - '0'));
+                else transform = parser::matrixMult(transform, scalings[(int)(transform_id[1]-'0')]);
             }
+
+            triangle.transformation = transform;
+            triangle.normal_transform = parser::matrixInverse(parser::matrixTranspose(transform));
 
             stream.str("");
             stream.clear();
@@ -752,8 +793,12 @@ void parser::Scene::loadFromJSON(std::string filepath){
         for (auto& item : element.items()) {
             Triangle triangle;
             auto child = item.value()["Indices"];
+            Vec3i indices;
             stream << child.get<std::string>() << std::endl;
-            stream >> triangle.v0 >> triangle.v1 >> triangle.v2;
+            stream >> indices.x >> indices.y >> indices.z;
+            triangle.v0 = vertex_data[indices.x-1];
+            triangle.v1 = vertex_data[indices.y-1];
+            triangle.v2 = vertex_data[indices.z-1];
             
             child = item.value()["Material"];
             stream << child.get<std::string>() << std::endl;
@@ -761,22 +806,27 @@ void parser::Scene::loadFromJSON(std::string filepath){
 
             // Calculate Normal from VertexData and Indices
             Vec3f vec1, vec2;
-            vec1 = vector_sub(vertex_data[triangle.v1], vertex_data[triangle.v0]);
-            vec2 = vector_sub(vertex_data[triangle.v2], vertex_data[triangle.v0]);
+            vec1 = vector_sub(triangle.v1, triangle.v0);
+            vec2 = vector_sub(triangle.v2, triangle.v0);
             triangle.normal = normalize(cross(vec1, vec2));
 
             child = item.value()["Transformations"];
             if (!child.is_null()){
                 stream << child.get<std::string>() << std::endl;
-                std::string transform;
+                std::string transform_id;
+                parser::Matrix4f transform;
+                transform.a = 1; transform.f = 1; transform.k = 1; transform.p = 1;
 
-                while(stream >> transform){
-                    if (transform[0] == 't') triangle.translations.push_back((int)(transform[1] - '0'));
+                while(stream >> transform_id){
+                    if (transform_id[0] == 't') transform = parser::matrixMult(transform, translations[(int)(transform_id[1]-'0')]);
 
-                    else if (transform[0] == 'r') triangle.rotations.push_back((int)(transform[1] - '0'));
+                    else if (transform_id[0] == 'r') transform = parser::matrixMult(transform, rotations[(int)(transform_id[1]-'0')]);
 
-                    else triangle.scalings.push_back((int)(transform[1] - '0'));
+                    else transform = parser::matrixMult(transform, scalings[(int)(transform_id[1]-'0')]);
                 }
+
+                triangle.transformation = transform;
+                triangle.normal_transform = parser::matrixInverse(parser::matrixTranspose(transform));
 
                 stream.str("");
                 stream.clear();
@@ -800,8 +850,10 @@ void parser::Scene::loadFromJSON(std::string filepath){
     if (element.type() != json::value_t::array && !element.is_null()) { // Single Sphere
         Sphere sphere;
         auto child = element["Center"];
+        int ind;
         stream << child.get<std::string>() << std::endl;
-        stream >> sphere.center_vertex_id;
+        stream >> ind;
+        sphere.center_vertex = vertex_data[ind-1];
 
         child = element["Radius"];
         stream << child.get<std::string>() << std::endl;
@@ -814,15 +866,19 @@ void parser::Scene::loadFromJSON(std::string filepath){
         child = element["Transformations"];
         if (!child.is_null()){
             stream << child.get<std::string>() << std::endl;
-            std::string transform;
+            std::string transform_id;
+            parser::Matrix4f transform;
+            transform.a = 1; transform.f = 1; transform.k = 1; transform.p = 1;
 
-            while(stream >> transform){
-                if (transform[0] == 't') sphere.translations.push_back((int)(transform[1] - '0'));
+            while(stream >> transform_id){
+                if (transform_id[0] == 't') transform = parser::matrixMult(transform, translations[(int)(transform_id[1]-'0')]);
 
-                else if (transform[0] == 'r') sphere.rotations.push_back((int)(transform[1] - '0'));
+                else if (transform_id[0] == 'r') transform = parser::matrixMult(transform, rotations[(int)(transform_id[1]-'0')]);
 
-                else sphere.scalings.push_back((int)(transform[1] - '0'));
+                else transform = parser::matrixMult(transform, scalings[(int)(transform_id[1]-'0')]);
             }
+
+            sphere.transformation = transform;
 
             stream.str("");
             stream.clear();
@@ -834,8 +890,10 @@ void parser::Scene::loadFromJSON(std::string filepath){
         for (auto& item : element.items()) {
             Sphere sphere;
             auto child = item.value()["Center"];
+            int ind;
             stream << child.get<std::string>() << std::endl;
-            stream >> sphere.center_vertex_id;
+            stream >> ind;
+            sphere.center_vertex = vertex_data[ind-1];
 
             child = item.value()["Radius"];
             stream << child.get<std::string>() << std::endl;
@@ -848,15 +906,19 @@ void parser::Scene::loadFromJSON(std::string filepath){
             child = item.value()["Transformations"];
             if (!child.is_null()){
                 stream << child.get<std::string>() << std::endl;
-                std::string transform;
+                std::string transform_id;
+                parser::Matrix4f transform;
+                transform.a = 1; transform.f = 1; transform.k = 1; transform.p = 1;
 
-                while(stream >> transform){
-                    if (transform[0] == 't') sphere.translations.push_back((int)(transform[1] - '0'));
+                while(stream >> transform_id){
+                    if (transform_id[0] == 't') transform = parser::matrixMult(transform, translations[(int)(transform_id[1]-'0')]);
 
-                    else if (transform[0] == 'r') sphere.rotations.push_back((int)(transform[1] - '0'));
+                    else if (transform_id[0] == 'r') transform = parser::matrixMult(transform, rotations[(int)(transform_id[1]-'0')]);
 
-                    else sphere.scalings.push_back((int)(transform[1] - '0'));
+                    else transform = parser::matrixMult(transform, scalings[(int)(transform_id[1]-'0')]);
                 }
+
+                sphere.transformation = transform;
 
                 stream.str("");
                 stream.clear();
@@ -885,8 +947,10 @@ void parser::Scene::loadFromJSON(std::string filepath){
         stream >> plane.normal.x >> plane.normal.y >> plane.normal.z;
 
         child = element["Point"];
+        int ind;
         stream << child.get<std::string>() << std::endl;
-        stream >> plane.point_id;
+        stream >> ind;
+        plane.point = vertex_data[ind-1];
 
         child = element["Material"];
         stream << child.get<std::string>() << std::endl;
@@ -895,15 +959,20 @@ void parser::Scene::loadFromJSON(std::string filepath){
         child = element["Transformations"];
         if (!child.is_null()){
             stream << child.get<std::string>() << std::endl;
-            std::string transform;
+            std::string transform_id;
+            parser::Matrix4f transform;
+            transform.a = 1; transform.f = 1; transform.k = 1; transform.p = 1;
 
-            while(stream >> transform){
-                if (transform[0] == 't') plane.translations.push_back((int)(transform[1] - '0'));
+            while(stream >> transform_id){
+                if (transform_id[0] == 't') transform = parser::matrixMult(transform, translations[(int)(transform_id[1]-'0')]);
 
-                else if (transform[0] == 'r') plane.rotations.push_back((int)(transform[1] - '0'));
+                else if (transform_id[0] == 'r') transform = parser::matrixMult(transform, rotations[(int)(transform_id[1]-'0')]);
 
-                else plane.scalings.push_back((int)(transform[1] - '0'));
+                else transform = parser::matrixMult(transform, scalings[(int)(transform_id[1]-'0')]);
             }
+
+            plane.transformation = transform;
+            plane.normal_transform = parser::matrixInverse(parser::matrixTranspose(transform));
 
             stream.str("");
             stream.clear();
@@ -919,8 +988,10 @@ void parser::Scene::loadFromJSON(std::string filepath){
             stream >> plane.normal.x >> plane.normal.y >> plane.normal.z;
 
             child = item.value()["Point"];
+            int ind;
             stream << child.get<std::string>() << std::endl;
-            stream >> plane.point_id;
+            stream >> ind;
+            plane.point = vertex_data[ind-1];
 
             child = item.value()["Material"];
             stream << child.get<std::string>() << std::endl;
@@ -929,15 +1000,20 @@ void parser::Scene::loadFromJSON(std::string filepath){
             child = item.value()["Transformations"];
             if (!child.is_null()){
                 stream << child.get<std::string>() << std::endl;
-                std::string transform;
+                std::string transform_id;
+                parser::Matrix4f transform;
+                transform.a = 1; transform.f = 1; transform.k = 1; transform.p = 1;
 
-                while(stream >> transform){
-                    if (transform[0] == 't') plane.translations.push_back((int)(transform[1] - '0'));
+                while(stream >> transform_id){
+                    if (transform_id[0] == 't') transform = parser::matrixMult(transform, translations[(int)(transform_id[1]-'0')]);
 
-                    else if (transform[0] == 'r') plane.rotations.push_back((int)(transform[1] - '0'));
+                    else if (transform_id[0] == 'r') transform = parser::matrixMult(transform, rotations[(int)(transform_id[1]-'0')]);
 
-                    else plane.scalings.push_back((int)(transform[1] - '0'));
+                    else transform = parser::matrixMult(transform, scalings[(int)(transform_id[1]-'0')]);
                 }
+
+                plane.transformation = transform;
+                plane.normal_transform = parser::matrixInverse(parser::matrixTranspose(transform));
 
                 stream.str("");
                 stream.clear();
@@ -952,7 +1028,7 @@ void parser::Scene::loadFromJSON(std::string filepath){
     // std::cout << "Got planes\n";
 }
 
-float determinant(parser::Matrix4f m) {
+float parser::determinant(parser::Matrix4f m) {
     float det3_1 = m.f * (m.k * m.p - m.o * m.l) - m.g * (m.j * m.p - m.n * m.l) + m.h * (m.j * m.o - m.n * m.k);
     float det3_2 = m.e * (m.k * m.p - m.o * m.l) - m.g * (m.i * m.p - m.m * m.l) + m.h * (m.i * m.o - m.m * m.k);
     float det3_3 = m.e * (m.j * m.p - m.n * m.l) - m.f * (m.i * m.p - m.m * m.l) + m.h * (m.i * m.n - m.m * m.j);
@@ -961,6 +1037,91 @@ float determinant(parser::Matrix4f m) {
     return m.a * det3_1 - m.b * det3_2 + m.c * det3_3 - m.d * det3_4;
 }
 
-float determinant(parser::Matrix3f m) {
+float parser::determinant(parser::Matrix3f m) {
     return m.a*(m.e*m.i - m.h*m.f) + m.b*(m.g*m.f - m.d*m.i) + m.c*(m.d*m.h - m.e*m.g);  
+}
+
+parser::Vec3f parser::matrixMult(parser::Matrix4f m, parser::Vec4f vec){
+    parser::Vec3f result;
+
+    result.x = m.a*vec.x + m.b*vec.y + m.c*vec.z + m.d*vec.w;
+    result.y = m.e*vec.x + m.f*vec.y + m.g*vec.z + m.h*vec.w;
+    result.z = m.i*vec.x + m.j*vec.y + m.k*vec.z + m.l*vec.w;
+
+    return result;
+}
+
+parser::Matrix4f parser::matrixMult(parser::Matrix4f m1, parser::Matrix4f m2) {
+    parser::Matrix4f result;
+
+    result.a = m1.a * m2.a + m1.b * m2.e + m1.c * m2.i + m1.d * m2.m;
+    result.b = m1.a * m2.b + m1.b * m2.f + m1.c * m2.j + m1.d * m2.n;
+    result.c = m1.a * m2.c + m1.b * m2.g + m1.c * m2.k + m1.d * m2.o;
+    result.d = m1.a * m2.d + m1.b * m2.h + m1.c * m2.l + m1.d * m2.p;
+
+    result.e = m1.e * m2.a + m1.f * m2.e + m1.g * m2.i + m1.h * m2.m;
+    result.f = m1.e * m2.b + m1.f * m2.f + m1.g * m2.j + m1.h * m2.n;
+    result.g = m1.e * m2.c + m1.f * m2.g + m1.g * m2.k + m1.h * m2.o;
+    result.h = m1.e * m2.d + m1.f * m2.h + m1.g * m2.l + m1.h * m2.p;
+
+    result.i = m1.i * m2.a + m1.j * m2.e + m1.k * m2.i + m1.l * m2.m;
+    result.j = m1.i * m2.b + m1.j * m2.f + m1.k * m2.j + m1.l * m2.n;
+    result.k = m1.i * m2.c + m1.j * m2.g + m1.k * m2.k + m1.l * m2.o;
+    result.l = m1.i * m2.d + m1.j * m2.h + m1.k * m2.l + m1.l * m2.p;
+
+    result.m = m1.m * m2.a + m1.n * m2.e + m1.o * m2.i + m1.p * m2.m;
+    result.n = m1.m * m2.b + m1.n * m2.f + m1.o * m2.j + m1.p * m2.n;
+    result.o = m1.m * m2.c + m1.n * m2.g + m1.o * m2.k + m1.p * m2.o;
+    result.p = m1.m * m2.d + m1.n * m2.h + m1.o * m2.l + m1.p * m2.p;
+
+    return result;
+}
+
+parser::Matrix4f parser::matrixTranspose(parser::Matrix4f m) {
+    return parser::Matrix4f(
+        m.a, m.e, m.i, m.m,
+        m.b, m.f, m.j, m.n,
+        m.c, m.g, m.k, m.o,
+        m.d, m.h, m.l, m.p
+    );
+}
+
+parser::Matrix4f parser::matrixInverse(parser::Matrix4f m) {
+    parser::Matrix4f inv;
+
+    inv.a =  m.f * m.k * m.p - m.f * m.l * m.o - m.j * m.g * m.p + m.j * m.h * m.o + m.n * m.g * m.l - m.n * m.h * m.k;
+    inv.b = -m.b * m.k * m.p + m.b * m.l * m.o + m.j * m.c * m.p - m.j * m.d * m.o - m.n * m.c * m.l + m.n * m.d * m.k;
+    inv.c =  m.b * m.g * m.p - m.b * m.h * m.o - m.f * m.c * m.p + m.f * m.d * m.o + m.n * m.c * m.h - m.n * m.d * m.g;
+    inv.d = -m.b * m.g * m.l + m.b * m.h * m.k + m.f * m.c * m.l - m.f * m.d * m.k - m.j * m.c * m.h + m.j * m.d * m.g;
+
+    inv.e = -m.e * m.k * m.p + m.e * m.l * m.o + m.i * m.g * m.p - m.i * m.h * m.o - m.m * m.g * m.l + m.m * m.h * m.k;
+    inv.f =  m.a * m.k * m.p - m.a * m.l * m.o - m.i * m.c * m.p + m.i * m.d * m.o + m.m * m.c * m.l - m.m * m.d * m.k;
+    inv.g = -m.a * m.g * m.p + m.a * m.h * m.o + m.e * m.c * m.p - m.e * m.d * m.o - m.m * m.c * m.h + m.m * m.d * m.g;
+    inv.h =  m.a * m.g * m.l - m.a * m.h * m.k - m.e * m.c * m.l + m.e * m.d * m.k + m.i * m.c * m.h - m.i * m.d * m.g;
+
+    inv.i =  m.e * m.j * m.p - m.e * m.l * m.n - m.i * m.f * m.p + m.i * m.h * m.n + m.m * m.f * m.l - m.m * m.h * m.j;
+    inv.j = -m.a * m.j * m.p + m.a * m.l * m.n + m.i * m.b * m.p - m.i * m.d * m.n - m.m * m.b * m.l + m.m * m.d * m.j;
+    inv.k =  m.a * m.f * m.p - m.a * m.h * m.n - m.e * m.b * m.p + m.e * m.d * m.n + m.m * m.b * m.h - m.m * m.d * m.f;
+    inv.l = -m.a * m.f * m.l + m.a * m.h * m.j + m.e * m.b * m.l - m.e * m.d * m.j - m.i * m.b * m.h + m.i * m.d * m.f;
+
+    inv.m = -m.e * m.j * m.o + m.e * m.k * m.n + m.i * m.f * m.o - m.i * m.g * m.n - m.m * m.f * m.k + m.m * m.g * m.j;
+    inv.n =  m.a * m.j * m.o - m.a * m.k * m.n - m.i * m.b * m.o + m.i * m.c * m.n + m.m * m.b * m.k - m.m * m.c * m.j;
+    inv.o = -m.a * m.f * m.o + m.a * m.g * m.n + m.e * m.b * m.o - m.e * m.c * m.n - m.m * m.b * m.g + m.m * m.c * m.f;
+    inv.p =  m.a * m.f * m.k - m.a * m.g * m.j - m.e * m.b * m.k + m.e * m.c * m.j + m.i * m.b * m.g - m.i * m.c * m.f;
+
+    float det = m.a * inv.a + m.b * inv.e + m.c * inv.i + m.d * inv.m;
+
+    if (det == 0) {
+        std::cerr << "Matrix inversion failed: determinant is zero." << std::endl;
+        return parser::Matrix4f(); // returns zero matrix
+    }
+
+    float invDet = 1.0f / det;
+
+    inv.a *= invDet; inv.b *= invDet; inv.c *= invDet; inv.d *= invDet;
+    inv.e *= invDet; inv.f *= invDet; inv.g *= invDet; inv.h *= invDet;
+    inv.i *= invDet; inv.j *= invDet; inv.k *= invDet; inv.l *= invDet;
+    inv.m *= invDet; inv.n *= invDet; inv.o *= invDet; inv.p *= invDet;
+
+    return inv;
 }

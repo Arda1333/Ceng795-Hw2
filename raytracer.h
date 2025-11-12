@@ -15,3 +15,5 @@ bool calculateShadow( parser::Vec3f& intersectionPoint, parser::Vec3f& lightDire
 parser::Vec3i calculateColor(parser::Vec3f& rayOrigin, parser::Vec3f& rayDirection, parser::Vec3f& intersectionPoint, parser::Vec3f& surfaceNormal, float& closest_t, float& t_min, parser::Material& material, parser::Scene& scene);
 
 parser::Vec3f calculateMirror(parser::Vec3f& currOrigin, parser::Vec3f& currNormal, parser::Vec3f& currDir, parser::Vec3f intersectionPoint, float t_min, parser::Vec3f accumulated, parser::Vec3f reflectWeight, float eps, int maxDepth, parser::Scene scene);
+
+parser::Vec3i trace(const parser::Vec3f &orig, const parser::Vec3f &dir, int depth, const parser::Scene &scene);

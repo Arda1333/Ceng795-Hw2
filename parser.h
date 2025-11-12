@@ -11,16 +11,44 @@ namespace parser
     struct Vec3f
     {
         float x, y, z;
+
+        Vec3f(){
+            x = 0; y = 0; z = 0;
+        }
+
+        Vec3f(float a, float b, float c){
+            x = a; y = b; z = c;
+        }
     };
 
     struct Vec3i
     {
         int x, y, z;
+
+        Vec3i(int a, int b, int c){
+            x = a; y = b; z = c;
+        }
+
+        Vec3i(){
+            x = 0; y = 0; z = 0;
+        }
     };
 
     struct Vec4f
     {
         float x, y, z, w;
+
+        Vec4f(float a, float b, float c, float d){
+            x = a; y = b; z = c; w = d;
+        }
+
+        Vec4f(){
+            x = 0; y = 0; z = 0; w = 0;
+        }
+
+        Vec4f(Vec3f vec){
+            x = vec.x; y = vec.y; z = vec.z; w = 1;
+        }
     };
 
     struct Matrix3f {
@@ -77,9 +105,17 @@ namespace parser
         }
     };
 
-    inline float determinant(Matrix4f m);
+    float determinant(Matrix4f m);
 
-    inline float determinant(Matrix3f m);
+    float determinant(Matrix3f m);
+
+    Vec3f matrixMult(Matrix4f m, Vec4f vec); // To apply transformation to vertices
+
+    Matrix4f matrixMult(Matrix4f m1, Matrix4f m2); // To calculate composite matrices
+
+    Matrix4f matrixTranspose(Matrix4f m);
+
+    Matrix4f matrixInverse(Matrix4f m);
 
     template<typename T> float magnitude(T vec) { //Can give 0 for small vectors
         return std::sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
@@ -190,7 +226,8 @@ namespace parser
 
     struct Face
     {
-        int v0, v1, v2;
+        Vec3f v0, v1, v2;
+        Vec3f normal;
         bool triangle;
     };
 
@@ -200,39 +237,34 @@ namespace parser
         int material_id;
         std::string ply_file;
         std::vector<Face> faces;
-        std::vector<int> translations;
-        std::vector<int> rotations;
-        std::vector<int> scalings;
+        Matrix4f transformation;
+        Matrix4f normal_transform;
     };
 
     struct Triangle
     {
         int material_id;
-        int v0, v1, v2;
+        Vec3f v0, v1, v2;
         Vec3f normal;
-        std::vector<int> translations;
-        std::vector<int> rotations;
-        std::vector<int> scalings;
+        Matrix4f transformation;
+        Matrix4f normal_transform;
     };
 
     struct Sphere
     {
         int material_id;
-        int center_vertex_id;
+        Vec3f center_vertex;
         float radius;
-        std::vector<int> translations;
-        std::vector<int> rotations;
-        std::vector<int> scalings;
+        Matrix4f transformation;
     };
 
     struct Plane
     {
         int material_id;
         Vec3f normal;
-        int point_id;
-        std::vector<int> translations;
-        std::vector<int> rotations;
-        std::vector<int> scalings;
+        Vec3f point;
+        Matrix4f transformation;
+        Matrix4f normal_transform;
     };
 
 

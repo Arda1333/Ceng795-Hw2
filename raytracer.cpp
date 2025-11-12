@@ -3,6 +3,7 @@
 #include "raytracer.h"
 #include <cstdint>
 #include <chrono>
+#include <algorithm>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
@@ -30,29 +31,45 @@ int main(int argc, char** argv) {
     parser::Scene scene;
     scene.loadFromJSON(scene_file);
 
-    std::cout << "Translations loaded: " << scene.translations.size() << std::endl;
-    std::cout << "Rotations loaded: " << scene.rotations.size() << std::endl;
-    std::cout << "Scalings loaded: " << scene.scalings.size() << std::endl;
-
-    if (scene.spheres.size() > 0){
-        std::cout << "Transformation count of first sphere: "
-        << scene.spheres[0].rotations.size() + scene.spheres[0].translations.size() + scene.spheres[0].scalings.size()
-        << std::endl;
-    }
-
-    return 0;
-
-
     std::cout << "Rendering..." << std::endl;
 
-    // std::cout << "Gaze: " << scene.cameras[0].gaze.x << ", " << scene.cameras[0].gaze.y << ", " << scene.cameras[0].gaze.z << std::endl;
-    // std::cout << "Up: " << scene.cameras[0].up.x << ", " << scene.cameras[0].up.y << ", " << scene.cameras[0].up.z << std::endl;
-    // std::cout << "Position: " << scene.cameras[0].position.x << ", " << scene.cameras[0].position.y << ", " << scene.cameras[0].position.z << std::endl;
-    // std::cout << "Corner: " << scene.cameras[0].corner.x << ", " << scene.cameras[0].corner.y << ", " << scene.cameras[0].corner.z << std::endl;
-    // std::cout << "Total pixels: " << scene.cameras[0].image_height * scene.cameras[0].image_width << std::endl;
+    std::cout << "Gaze: " << scene.cameras[0].gaze.x << ", " << scene.cameras[0].gaze.y << ", " << scene.cameras[0].gaze.z << std::endl;
+    std::cout << "Up: " << scene.cameras[0].up.x << ", " << scene.cameras[0].up.y << ", " << scene.cameras[0].up.z << std::endl;
+    std::cout << "Position: " << scene.cameras[0].position.x << ", " << scene.cameras[0].position.y << ", " << scene.cameras[0].position.z << std::endl;
+    std::cout << "Corner: " << scene.cameras[0].corner.x << ", " << scene.cameras[0].corner.y << ", " << scene.cameras[0].corner.z << std::endl;
+    std::cout << "Total pixels: " << scene.cameras[0].image_height * scene.cameras[0].image_width << std::endl;
 
     // Starting the timer
     auto start = std::chrono::high_resolution_clock::now();
+
+
+    // Apply the transformations
+    for (auto& triangle : scene.triangles){
+        triangle.v0 = parser::matrixMult(triangle.transformation, parser::Vec4f(triangle.v0));
+        triangle.v1 = parser::matrixMult(triangle.transformation, parser::Vec4f(triangle.v1));
+        triangle.v2 = parser::matrixMult(triangle.transformation, parser::Vec4f(triangle.v2));
+        triangle.normal = parser::matrixMult(triangle.normal_transform, parser::Vec4f(triangle.normal));
+    }
+
+    for (auto& sphere : scene.spheres){
+        sphere.center_vertex = parser::matrixMult(sphere.transformation, parser::Vec4f(sphere.center_vertex));
+    }
+
+    for (auto& plane : scene.planes){
+        plane.point = parser::matrixMult(plane.transformation, parser::Vec4f(plane.point));
+        plane.normal = parser::matrixMult(plane.normal_transform, parser::Vec4f(plane.normal));
+    }
+
+    for (auto& mesh : scene.meshes){
+        for (auto& face : mesh.faces){
+            face.v0 = parser::matrixMult(mesh.transformation, parser::Vec4f(face.v0));
+            face.v1 = parser::matrixMult(mesh.transformation, parser::Vec4f(face.v1));
+            face.v2 = parser::matrixMult(mesh.transformation, parser::Vec4f(face.v2));
+            face.normal = parser::matrixMult(mesh.normal_transform, parser::Vec4f(face.normal));
+        }
+    }
+
+
 
     long no_hits = 0;
     long black_pixels = 0;
@@ -62,12 +79,12 @@ int main(int argc, char** argv) {
         std::vector<unsigned char> image(camera.image_height * camera.image_width * 3, 0);
         unsigned char* img_ptr = image.data();
 
-        // Ray tracing loop
+        // Ray tracing loop (inside camera loop)
         float horiz_step = (camera.near_plane.y - camera.near_plane.x) / camera.image_width;
         float vert_step = (camera.near_plane.w - camera.near_plane.z) / camera.image_height;
         for (int i = 0; i < camera.image_height; ++i) {
             for (int j = 0; j < camera.image_width; ++j) {
-
+                // Compute pixel center in the view plane
                 float s_u = (j + 0.5f) * horiz_step; // j = horizontal column
                 float s_v = (i + 0.5f) * vert_step;  // i = vertical row
 
@@ -80,135 +97,17 @@ int main(int argc, char** argv) {
                 );
 
                 parser::Vec3f rayDirection = parser::normalize(parser::vector_sub(pointOnPlane, camera.position));
-                
-                float t_min = 1e-6f;
                 rayDirection = parser::normalize(rayDirection);
-                
-
-                int material_id = -1;
-                parser::Vec3f surfaceNormal, intersectionPoint;
-
-                ////////////////////////// Check intersections with all objects //////////////////////////
-                float closest_t = intersectsObject(camera.position, rayDirection, t_min, material_id, surfaceNormal, intersectionPoint, scene);
-                ////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-                ////////////////////////// Shadow, Mirror, and Color Calculation //////////////////////////
-
+                // Trace the ray recursively
+                parser::Vec3i color = trace(camera.position, rayDirection, 0, scene);
+                // Write to image
                 size_t idx = 3 * (i * camera.image_width + j);
-
-                parser::Vec3i color;
-                parser::Material mat;
-
-                // Ambient, Diffuse, Specular, and Shadow calculation
-                if (material_id != -1) {
-                    mat = scene.materials[material_id-1];
-                    color = calculateColor(camera.position, rayDirection, intersectionPoint, surfaceNormal, closest_t, t_min, mat, scene);
-                }
-
-                else color = scene.background_color;
-
-                image[idx] = color.x;
+                image[idx]   = color.x;
                 image[idx+1] = color.y;
                 image[idx+2] = color.z;
-
-
-                // Mirror, Conductor, and Dielectric calculation
-                if (material_id != -1 && (mat.is_mirror || mat.is_conductor || mat.is_dielectric)) {
-                    parser::Vec3f currOrigin = camera.position;
-                    parser::Vec3f currNormal = surfaceNormal;
-                    parser::Vec3f currDir = rayDirection;
-                    parser::Vec3f mIntersectionPoint = intersectionPoint;
-                    parser::Vec3f reflectWeight = scene.materials[material_id-1].mirror;
-                    float eps = scene.shadow_ray_epsilon;
-
-                    parser::Vec3f accumulated = calculateMirror(currOrigin, currNormal, currDir, mIntersectionPoint, t_min, {0,0,0}, reflectWeight, eps, scene.max_recursion_depth, scene);
-
-                    if (mat.is_conductor){ // Apply Fresnel reflection if conductor
-                        float cosTh = parser::dot(parser::neg(rayDirection), surfaceNormal);
-                        cosTh = std::max(0.0f, std::min(1.0f, cosTh));
-
-                        float Rs = mat.absorb_ind*mat.absorb_ind + mat.refract_ind*mat.refract_ind - (2 * mat.refract_ind * cosTh) + cosTh*cosTh;
-                        Rs /= mat.absorb_ind*mat.absorb_ind + mat.refract_ind*mat.refract_ind + (2 * mat.refract_ind * cosTh) + cosTh*cosTh;
-
-                        float Rp = (mat.absorb_ind*mat.absorb_ind + mat.refract_ind*mat.refract_ind) * (cosTh*cosTh) - (2 * mat.refract_ind * cosTh) + 1.0;
-                        Rp /= (mat.absorb_ind*mat.absorb_ind + mat.refract_ind*mat.refract_ind) * (cosTh*cosTh) + (2 * mat.refract_ind * cosTh) + 1.0;
-
-                        float Fr = (Rs + Rp) / 2;
-                        Fr = std::max(0.0f, std::min(1.0f, Fr));
-
-                        accumulated = parser::scalar_mult(accumulated, Fr);
-                    }
-
-                    if (mat.is_dielectric){ // Calculate refraction and Fresnel reflection if dielectric
-                        float cosTh = parser::dot(parser::neg(rayDirection), surfaceNormal);
-                        cosTh = std::max(0.0f, std::min(1.0f, cosTh));
-
-                        float cosPhi = 1 - (1/mat.refract_ind)*(1/mat.refract_ind)*(1 - cosTh*cosTh);
-
-
-                        if (cosPhi >= 0) { // Refraction occurs
-                            cosPhi = std::sqrt(cosPhi);
-
-                            float Rparal = mat.refract_ind*cosTh - cosPhi;
-                            Rparal /= mat.refract_ind*cosTh + cosPhi;
-
-                            float Rperp = cosTh - mat.refract_ind*cosPhi;
-                            Rperp /= cosTh + mat.refract_ind*cosPhi;
-
-                            float Fr = (Rparal*Rparal + Rperp*Rperp) / 2;
-                            Fr = std::max(0.0f, std::min(1.0f, Fr));
-                            float Ft = 1 - Fr;
-
-                            // Apply the reflection ratio
-                            accumulated = parser::scalar_mult(accumulated, Fr);
-
-                            parser::Vec3f transmitDir = parser::scalar_div(parser::vector_add(rayDirection, parser::scalar_mult(surfaceNormal, cosTh)), mat.refract_ind);
-                            transmitDir = parser::vector_sub(transmitDir, parser::scalar_mult(surfaceNormal, cosPhi));
-
-                            int refMatId = -1;
-                            parser::Vec3f refSurfaceNormal, refIntersectionPoint;
-                            float t_attenuation = intersectsObject(intersectionPoint, transmitDir, t_min, refMatId, refSurfaceNormal, refIntersectionPoint, scene);
-
-                            float atten_rate_x = mat.refract_ind * std::exp(-mat.absorb_coeff.x*t_attenuation);
-                            float atten_rate_y = mat.refract_ind * std::exp(-mat.absorb_coeff.y*t_attenuation);
-                            float atten_rate_z = mat.refract_ind * std::exp(-mat.absorb_coeff.z*t_attenuation);
-
-                            // To find the point where the light exits the material
-                            float ref_closest_t = intersectsObject(intersectionPoint, transmitDir, t_attenuation, refMatId, refSurfaceNormal, refIntersectionPoint, scene);
-
-                            parser::Material refMat;
-                            parser::Vec3i refColor;
-
-                            if (refMatId != -1) {
-                                refMat = scene.materials[refMatId-1];
-                                parser::Vec3f epsIntersection = parser::vector_add(intersectionPoint, parser::scalar_mult(parser::neg(surfaceNormal), ref_closest_t+eps));
-                                refColor = calculateColor(epsIntersection, transmitDir, refIntersectionPoint, refSurfaceNormal, ref_closest_t, t_attenuation, refMat, scene);
-                            }
-                            else refColor = scene.background_color;
-
-                            refColor.x *= atten_rate_x * Ft;
-                            refColor.y *= atten_rate_y * Ft;
-                            refColor.z *= atten_rate_z * Ft;
-
-                            accumulated.x += std::min(255.0f, (float)refColor.x);
-                            accumulated.y += std::min(255.0f, (float)refColor.y);
-                            accumulated.z += std::min(255.0f, (float)refColor.z);
-                        }
-                    }
-
-                    // Add the accumulated color value
-                    image[idx] = std::min(255, image[idx] + (int)accumulated.x);
-                    image[idx+1] = std::min(255, image[idx+1] + (int)accumulated.y);
-                    image[idx+2] = std::min(255, image[idx+2] + (int)accumulated.z);
-                }
-
-                
-                ///////////////////////////////////////////////////////////////////////////////////
-
             }
         }
+
 
         // End the timer
         auto end = std::chrono::high_resolution_clock::now();
@@ -249,9 +148,8 @@ int main(int argc, char** argv) {
 ////////////////////////// Ray-Object Intersection Functions //////////////////////////
 
 float intersectsPlane(parser::Vec3f& rayOrigin, parser::Vec3f& rayDirection, parser::Plane& plane, float t_min, parser::Scene& scene) {
-    parser::Vec3f p = scene.vertex_data[plane.point_id-1];
 
-    float t = parser::dot(parser::vector_sub(p, rayOrigin), plane.normal) / parser::dot(rayDirection, plane.normal);
+    float t = parser::dot(parser::vector_sub(plane.point, rayOrigin), plane.normal) / parser::dot(rayDirection, plane.normal);
 
     if (t > t_min) {
         //std::cout << "Plane intersection at t: " << t << std::endl;
@@ -263,13 +161,10 @@ float intersectsPlane(parser::Vec3f& rayOrigin, parser::Vec3f& rayDirection, par
 
 
 float intersectsSphere(parser::Vec3f& rayOrigin, parser::Vec3f& rayDirection, parser::Sphere& sphere, float t_min, parser::Scene& scene) {
-    parser::Vec3f center = scene.vertex_data[sphere.center_vertex_id-1];
-
-
     
     float a = parser::dot(rayDirection, rayDirection);
-    float b = 2.0f * parser::dot(rayDirection, parser::vector_sub(rayOrigin, center));
-    float c = parser::dot(parser::vector_sub(rayOrigin, center), parser::vector_sub(rayOrigin, center)) - sphere.radius * sphere.radius;
+    float b = 2.0f * parser::dot(rayDirection, parser::vector_sub(rayOrigin, sphere.center_vertex));
+    float c = parser::dot(parser::vector_sub(rayOrigin, sphere.center_vertex), parser::vector_sub(rayOrigin, sphere.center_vertex)) - sphere.radius * sphere.radius;
 
     float discriminant = b*b - 4*a*c;
     
@@ -293,9 +188,9 @@ float intersectsSphere(parser::Vec3f& rayOrigin, parser::Vec3f& rayDirection, pa
 
 
 float intersectsTriangle(parser::Vec3f& rayOrigin, parser::Vec3f& rayDirection, parser::Triangle& triangle, float t_min, parser::Scene& scene) {
-    parser::Vec3f a = scene.vertex_data[triangle.v0-1];
-    parser::Vec3f b = scene.vertex_data[triangle.v1-1];
-    parser::Vec3f c = scene.vertex_data[triangle.v2-1];
+    parser::Vec3f a = triangle.v0;
+    parser::Vec3f b = triangle.v1;
+    parser::Vec3f c = triangle.v2;
 
     parser::Matrix3f ma(parser::vector_sub(a,b), parser::vector_sub(a,c), rayDirection);
     parser::Matrix3f mb(parser::vector_sub(a, rayOrigin), parser::vector_sub(a,c), rayDirection);
@@ -328,7 +223,7 @@ float intersectsObject(parser::Vec3f& rayOrigin, parser::Vec3f& rayDirection, fl
         if (t > 0 && t < closest_t) {
             closest_t = t;
             material_id = sphere.material_id;
-            surfaceNormal = parser::normalize(parser::vector_sub(parser::vector_add(rayOrigin, parser::scalar_mult(rayDirection, t)), scene.vertex_data[sphere.center_vertex_id-1]));
+            surfaceNormal = parser::normalize(parser::vector_sub(parser::vector_add(rayOrigin, parser::scalar_mult(rayDirection, t)), sphere.center_vertex));
         }
     }
 
@@ -357,12 +252,7 @@ float intersectsObject(parser::Vec3f& rayOrigin, parser::Vec3f& rayDirection, fl
                 triangle.v0 = face.v0;
                 triangle.v1 = face.v1;
                 triangle.v2 = face.v2;
-
-                // Calculate Normal from VertexData and Indices
-                parser::Vec3f vec1, vec2;
-                vec1 = parser::vector_sub(scene.vertex_data[triangle.v1-1], scene.vertex_data[triangle.v0-1]);
-                vec2 = parser::vector_sub(scene.vertex_data[triangle.v2-1], scene.vertex_data[triangle.v0-1]);
-                triangle.normal = parser::normalize(parser::cross(vec1, vec2));
+                triangle.normal = face.normal;
 
                 float t = intersectsTriangle(rayOrigin, rayDirection, triangle, t_min, scene);
                 if (t > 0 && t < closest_t) {
@@ -435,8 +325,8 @@ bool calculateShadow(parser::Vec3f& interectionPoint, parser::Vec3f& lightDirect
 
                     // Calculate Normal from VertexData and Indices
                     parser::Vec3f vec1, vec2;
-                    vec1 = parser::vector_sub(scene.vertex_data[triangle.v1-1], scene.vertex_data[triangle.v0-1]);
-                    vec2 = parser::vector_sub(scene.vertex_data[triangle.v2-1], scene.vertex_data[triangle.v0-1]);
+                    vec1 = parser::vector_sub(triangle.v1, triangle.v0);
+                    vec2 = parser::vector_sub(triangle.v2, triangle.v0);
                     triangle.normal = parser::normalize(parser::cross(vec1, vec2));
 
                     float t = intersectsTriangle(interectionPoint, lightDirection, triangle, t_min, scene);
@@ -558,3 +448,150 @@ parser::Vec3f calculateMirror(parser::Vec3f& currOrigin, parser::Vec3f& currNorm
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+// Recursive ray tracing function: returns RGB color for a ray
+parser::Vec3i trace(const parser::Vec3f &orig, const parser::Vec3f &dir, int depth, const parser::Scene &scene) {
+    // Base case: exceed recursion depth
+    if (depth > scene.max_recursion_depth) {
+        return scene.background_color;
+    }
+
+    // Choose t_min: use a tiny epsilon for primary rays (depth==0),
+    // and use the scene.shadow_ray_epsilon for secondary rays.
+    float t_min = 1e-6f;
+
+    // Intersect scene
+    int mat_id = -1;
+    parser::Vec3f normal, hitPoint;
+    float t = intersectsObject((parser::Vec3f&)orig, (parser::Vec3f&)dir, t_min,
+                               mat_id, normal, hitPoint, const_cast<parser::Scene&>(scene));
+
+    // intersectsObject returns -1 for no hit
+    if (t < 0.0f || mat_id < 0) {
+        return scene.background_color;
+    }
+
+    const parser::Material &mat = scene.materials[mat_id - 1];
+
+    // Ensure normal faces the incoming ray (so N·L and N·H are meaningful)
+    if (parser::dot(dir, normal) > 0.0f) {
+        normal = parser::neg(normal);
+    }
+
+    // Accumulate in float
+    parser::Vec3f color_f(0.0f, 0.0f, 0.0f);
+
+    // Ambient term
+    color_f.x += mat.ambient.x * scene.ambient_light.x;
+    color_f.y += mat.ambient.y * scene.ambient_light.y;
+    color_f.z += mat.ambient.z * scene.ambient_light.z;
+
+    // Local lighting
+    for (auto &light : scene.point_lights) {
+        parser::Vec3f L = parser::vector_sub(light.position, hitPoint);
+        float distToLight = parser::magnitude(L);
+        if (distToLight <= 0.0f) continue;
+        L = parser::normalize(L);
+
+        // Shadow ray origin
+        parser::Vec3f shadowOrig = parser::vector_add(hitPoint, parser::scalar_mult(normal, scene.shadow_ray_epsilon));
+        bool inShadow = calculateShadow(shadowOrig, L, scene.shadow_ray_epsilon, distToLight, const_cast<parser::Scene&>(scene));
+        if (inShadow) continue;
+
+        float NdotL = std::max(0.0f, parser::dot(normal, L));
+        color_f.x += mat.diffuse.x  * (light.intensity.x / (distToLight*distToLight)) * NdotL;
+        color_f.y += mat.diffuse.y  * (light.intensity.y / (distToLight*distToLight)) * NdotL;
+        color_f.z += mat.diffuse.z  * (light.intensity.z / (distToLight*distToLight)) * NdotL;
+
+        // Specular (Phong with half-vector)
+        parser::Vec3f V = parser::vector_sub(orig, hitPoint);
+        parser::Vec3f H = parser::normalize(parser::vector_add(parser::normalize(V), L));
+        float NdotH = std::max(0.0f, parser::dot(normal, H));
+        float specFactor = std::pow(NdotH, mat.phong_exponent);
+        color_f.x += mat.specular.x * (light.intensity.x / (distToLight*distToLight)) * specFactor;
+        color_f.y += mat.specular.y * (light.intensity.y / (distToLight*distToLight)) * specFactor;
+        color_f.z += mat.specular.z * (light.intensity.z / (distToLight*distToLight)) * specFactor;
+    }
+
+    // Reflection (mirror or conductor)
+    if (mat.is_mirror || mat.is_conductor) {
+        parser::Vec3f reflectDir = parser::vector_sub(dir, parser::scalar_mult(normal, 2.0f * parser::dot(dir, normal)));
+        reflectDir = parser::normalize(reflectDir);
+        parser::Vec3f reflectOrig = parser::vector_add(hitPoint, parser::scalar_mult(reflectDir, scene.shadow_ray_epsilon));
+        parser::Vec3i reflColor = trace(reflectOrig, reflectDir, depth + 1, scene);
+        parser::Vec3f reflF((float)reflColor.x, (float)reflColor.y, (float)reflColor.z);
+        // Apply mirror color
+        reflF.x *= mat.mirror.x; reflF.y *= mat.mirror.y; reflF.z *= mat.mirror.z;
+
+        if (mat.is_conductor) {
+            float cosTh = std::clamp(parser::dot(parser::neg(dir), normal), 0.0f, 1.0f);
+            float a2 = mat.absorb_ind * mat.absorb_ind + mat.refract_ind * mat.refract_ind;
+            float two = 2.0f * mat.refract_ind * cosTh;
+            float Rs = (a2 - two + cosTh*cosTh) / (a2 + two + cosTh*cosTh);
+            float Rp = (a2 * (cosTh*cosTh) - two + 1.0f) / (a2 * (cosTh*cosTh) + two + 1.0f);
+            float Fr = std::clamp((Rs + Rp) * 0.5f, 0.0f, 1.0f);
+            reflF = parser::scalar_mult(reflF, Fr);
+        }
+        color_f.x += reflF.x;
+        color_f.y += reflF.y;
+        color_f.z += reflF.z;
+    }
+
+    // Refraction (dielectric)
+    if (mat.is_dielectric) {
+        float eta = mat.refract_ind;
+        float cosTh = std::clamp(parser::dot(parser::neg(dir), normal), 0.0f, 1.0f);
+        float k = 1.0f - (1.0f/(eta*eta)) * (1 - cosTh*cosTh);
+        if (k >= 0.0f) {
+            // refracted dir
+            parser::Vec3f refrDir = parser::vector_sub(parser::scalar_mult(dir, 1.0f/eta),
+                                                      parser::scalar_mult(normal, (cosTh/eta - std::sqrt(k))));
+            refrDir = parser::normalize(refrDir);
+
+            // Fresnel
+            float Rpar = (eta*cosTh - std::sqrt(k)) / (eta*cosTh + std::sqrt(k));
+            float Rperp = (cosTh - eta*std::sqrt(k)) / (cosTh + eta*std::sqrt(k));
+            float Fr = std::clamp(0.5f*(Rpar*Rpar + Rperp*Rperp), 0.0f, 1.0f);
+            float Ft = 1.0f - Fr;
+
+            // Reflection part weighted by Fr
+            parser::Vec3f reflectDir = parser::vector_sub(dir, parser::scalar_mult(normal, 2.0f * parser::dot(dir, normal)));
+            reflectDir = parser::normalize(reflectDir);
+            parser::Vec3f reflectOrig = parser::vector_add(hitPoint, parser::scalar_mult(reflectDir, scene.shadow_ray_epsilon));
+            parser::Vec3i reflColor = trace(reflectOrig, reflectDir, depth + 1, scene);
+            parser::Vec3f reflF((float)reflColor.x, (float)reflColor.y, (float)reflColor.z);
+            reflF = parser::scalar_mult(reflF, Fr);
+            color_f.x += reflF.x; color_f.y += reflF.y; color_f.z += reflF.z;
+
+            // Refraction part weighted by Ft and attenuated by Beer-Lambert
+            parser::Vec3f refrOrig = parser::vector_add(hitPoint, parser::scalar_mult(refrDir, scene.shadow_ray_epsilon));
+            parser::Vec3i refrColor = trace(refrOrig, refrDir, depth + 1, scene);
+            parser::Vec3f refrF((float)refrColor.x, (float)refrColor.y, (float)refrColor.z);
+
+            // Find distance inside medium (exit intersection)
+            int exitMat = -1; parser::Vec3f exitNorm, exitPt;
+            float distInside = intersectsObject((parser::Vec3f&)refrOrig, (parser::Vec3f&)refrDir, scene.shadow_ray_epsilon,
+                                                exitMat, exitNorm, exitPt, const_cast<parser::Scene&>(scene));
+            // If no exit found or negative distance assume no attenuation (robust fallback)
+            parser::Vec3f atten(1.0f, 1.0f, 1.0f);
+            if (distInside > 0.0f) {
+                atten.x = std::exp(-mat.absorb_coeff.x * distInside);
+                atten.y = std::exp(-mat.absorb_coeff.y * distInside);
+                atten.z = std::exp(-mat.absorb_coeff.z * distInside);
+            }
+
+            refrF.x *= Ft * atten.x; refrF.y *= Ft * atten.y; refrF.z *= Ft * atten.z;
+            color_f.x += refrF.x; color_f.y += refrF.y; color_f.z += refrF.z;
+        }
+    }
+
+    // Clamp and convert to integer color
+    parser::Vec3i finalColor;
+    finalColor.x = (int)std::min(255.0f, std::max(0.0f, color_f.x));
+    finalColor.y = (int)std::min(255.0f, std::max(0.0f, color_f.y));
+    finalColor.z = (int)std::min(255.0f, std::max(0.0f, color_f.z));
+    return finalColor;
+}
