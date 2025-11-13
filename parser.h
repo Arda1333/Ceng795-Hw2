@@ -117,6 +117,10 @@ namespace parser
 
     Matrix4f matrixInverse(Matrix4f m);
 
+    void printMatrix(Matrix3f m);
+
+    void printMatrix(Matrix4f m);
+
     template<typename T> float magnitude(T vec) { //Can give 0 for small vectors
         return std::sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
     }
@@ -239,6 +243,7 @@ namespace parser
         std::vector<Face> faces;
         Matrix4f transformation;
         Matrix4f normal_transform;
+        bool is_transformed = false;
     };
 
     struct Triangle
@@ -248,6 +253,7 @@ namespace parser
         Vec3f normal;
         Matrix4f transformation;
         Matrix4f normal_transform;
+        bool is_transformed = false;
     };
 
     struct Sphere
@@ -256,6 +262,7 @@ namespace parser
         Vec3f center_vertex;
         float radius;
         Matrix4f transformation;
+        bool is_transformed = false;
     };
 
     struct Plane
@@ -265,6 +272,7 @@ namespace parser
         Vec3f point;
         Matrix4f transformation;
         Matrix4f normal_transform;
+        bool is_transformed = false;
     };
 
 

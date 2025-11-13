@@ -45,27 +45,33 @@ int main(int argc, char** argv) {
 
     // Apply the transformations
     for (auto& triangle : scene.triangles){
-        triangle.v0 = parser::matrixMult(triangle.transformation, parser::Vec4f(triangle.v0));
-        triangle.v1 = parser::matrixMult(triangle.transformation, parser::Vec4f(triangle.v1));
-        triangle.v2 = parser::matrixMult(triangle.transformation, parser::Vec4f(triangle.v2));
-        triangle.normal = parser::matrixMult(triangle.normal_transform, parser::Vec4f(triangle.normal));
+        if (triangle.is_transformed) {
+            triangle.v0 = parser::matrixMult(triangle.transformation, parser::Vec4f(triangle.v0));
+            triangle.v1 = parser::matrixMult(triangle.transformation, parser::Vec4f(triangle.v1));
+            triangle.v2 = parser::matrixMult(triangle.transformation, parser::Vec4f(triangle.v2));
+            triangle.normal = parser::matrixMult(triangle.normal_transform, parser::Vec4f(triangle.normal));
+        }
     }
 
     for (auto& sphere : scene.spheres){
-        sphere.center_vertex = parser::matrixMult(sphere.transformation, parser::Vec4f(sphere.center_vertex));
+        if (sphere.is_transformed) sphere.center_vertex = parser::matrixMult(sphere.transformation, parser::Vec4f(sphere.center_vertex));
     }
 
     for (auto& plane : scene.planes){
-        plane.point = parser::matrixMult(plane.transformation, parser::Vec4f(plane.point));
-        plane.normal = parser::matrixMult(plane.normal_transform, parser::Vec4f(plane.normal));
+        if (plane.is_transformed) {
+            plane.point = parser::matrixMult(plane.transformation, parser::Vec4f(plane.point));
+            plane.normal = parser::matrixMult(plane.normal_transform, parser::Vec4f(plane.normal));
+        }
     }
 
     for (auto& mesh : scene.meshes){
-        for (auto& face : mesh.faces){
-            face.v0 = parser::matrixMult(mesh.transformation, parser::Vec4f(face.v0));
-            face.v1 = parser::matrixMult(mesh.transformation, parser::Vec4f(face.v1));
-            face.v2 = parser::matrixMult(mesh.transformation, parser::Vec4f(face.v2));
-            face.normal = parser::matrixMult(mesh.normal_transform, parser::Vec4f(face.normal));
+        if (mesh.is_transformed) {
+            for (auto& face : mesh.faces){
+                face.v0 = parser::matrixMult(mesh.transformation, parser::Vec4f(face.v0));
+                face.v1 = parser::matrixMult(mesh.transformation, parser::Vec4f(face.v1));
+                face.v2 = parser::matrixMult(mesh.transformation, parser::Vec4f(face.v2));
+                face.normal = parser::matrixMult(mesh.normal_transform, parser::Vec4f(face.normal));
+            }
         }
     }
 
